@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Ludo Game</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px 10px;font-family:Arial,sans-serif;background:#172033;color:white;text-align:center}
+h1{margin:8px 0;color:#ffd54f}
+#status{font-size:17px;font-weight:bold;margin:14px 0}
+#board{width:min(94vw,520px);aspect-ratio:1;margin:12px auto;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(15,1fr);background:white;border:3px solid white;border-radius:5px;overflow:hidden}
+.cell{position:relative;display:flex;justify-content:center;align-items:center;border:1px solid #cbd5e1;background:white;min-width:0;min-height:0}
+.home-red{background:#ef4444}.home-green{background:#22c55e}.home-yellow{background:#facc15}.home-blue{background:#3b82f6}
+.track{background:#f8fafc}.safe{background:#dbeafe}.lane-red{background:#fca5a5}.lane-green{background:#86efac}.lane-yellow{background:#fde68a}.lane-blue{background:#93c5fd}
+.token{position:absolute;width:76%;height:76%;padding:0;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px #0007;cursor:pointer;z-index:2}
+.token.red{background:#dc2626}.token.green{background:#16a34a}.token.yellow{background:#eab308}.token.blue{background:#2563eb}
+.token:focus{outline:3px solid #111827}.token:disabled{cursor:default;opacity:.85}
+button{border:none;border-radius:12px;padding:13px 20px;margin:5px;font-size:16px;font-weight:bold;cursor:pointer}
+#roll{background:#facc15;color:#172033}#reset{background:#e2e8f0;color:#172033}
+#dice{font-size:44px;margin:10px}
+#players{max-width:520px;margin:12px auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.player{padding:10px;border-radius:9px;background:#29364d}.player.active{outline:3px solid #facc15}
+#help{max-width:520px;margin:16px auto;color:#dbeafe;font-size:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>🎲 My Ludo Game</h1>
+<p>अपनी गोटी चलाओ और गेम जीतो!</p>
+<div id="status">गेम शुरू हो रहा है...</div>
+<div id="dice">🎲</div>
+<button id="roll">पासा फेंको</button><button id="reset">नया गेम</button>
+<div id="board"></div><div id="players"></div>
+<div id="help">नियम: गोटी घर से निकालने के लिए 6 चाहिए। पासा फेंकने के बाद अपनी गोटी चुनें। सबसे पहले अपनी चारों गोटियाँ फिनिश तक पहुँचाएँ।</div>
+<script>
+const colors=["red","green","yellow","blue"];
+const names={red:"लाल",green:"हरा",yellow:"पीला",blue:"नीला"};
+const path=[[6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],[8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],[13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0]];
+const starts={red:0,green:13,yellow:26,blue:39};
+const lanes={red:[[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],green:[[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],yellow:[[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],blue:[[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]]};
+const yards={red:[[1,1],[1,4],[4,1],[4,4]],green:[[1,10],[1,13],[4,10],[4,13]],yellow:[[10,10],[10,13],[13,10],[13,13]],blue:[[10,1],[10,4],[13,1],[13,4]]};
+const board=document.getElementById("board"),statusEl=document.getElementById("status"),diceEl=document.getElementById("dice"),rollBtn=document.getElementById("roll"),playersEl=document.getElementById("players");
+let cells=[],pieces,turn=0,dice=null,gameOver=false,lastRollWasSix=false;
+const diceFaces=["⚀","⚁","⚂","⚃","⚄","⚅"];
+function key(r,c){return r+","+c}
+function isInHome(r,c,color){if(color==="red")return r<=5&&c<=5;if(color==="green")return r<=5&&c>=9;if(color==="yellow")return r>=9&&c>=9;return r>=9&&c<=5}
+function createBoard(){board.innerHTML="";cells=[];const trackMap=new Map();path.forEach((p,i)=>trackMap.set(key(p[0],p[1]),i));for(let r=0;r<15;r++){for(let c=0;c<15;c++){const cell=document.createElement("div");cell.className="cell";if(isInHome(r,c,"red"))cell.classList.add("home-red");else if(isInHome(r,c,"green"))cell.classList.add("home-green");else if(isInHome(r,c,"yellow"))cell.classList.add("home-yellow");else if(isInHome(r,c,"blue"))cell.classList.add("home-blue");else if(trackMap.has(key(r,c))){cell.classList.add("track");if([0,8,13,21,26,34,39,47].includes(trackMap.get(key(r,c))))cell.classList.add("safe")}for(const color of colors){if(lanes[color].some(p=>p[0]===r&&p[1]===c))cell.classList.add("lane-"+color)}if(r===7&&c===7)cell.style.background="conic-gradient(#22c55e 0deg 90deg,#eab308 90deg 180deg,#2563eb 180deg 270deg,#dc2626 270deg 360deg)";board.appendChild(cell);cells.push(cell)}}}
+function getCell(r,c){return cells[r*15+c]}
+function positionOf(color,piece){if(piece.pos===-1)return yards[color][piece.id];if(piece.pos>=52)return lanes[color][piece.pos-52];const index=(starts[color]+piece.pos)%52;return path[index]}
+function canMove(color,piece){if(dice===null||gameOver)return false;if(piece.pos===-1)return dice===6;return piece.pos+dice<=57}
+function renderPieces(){document.querySelectorAll(".token").forEach(t=>t.remove());for(const color of colors){pieces[color].forEach(piece=>{const [r,c]=positionOf(color,piece),cell=getCell(r,c),token=document.createElement("button");token.className="token "+color;token.title=names[color]+" गोटी "+(piece.id+1);token.setAttribute("aria-label",names[color]+" गोटी "+(piece.id+1));const current=colors[turn]===color;if(!gameOver&&dice!==null&&current&&canMove(color,piece)){token.style.outline="2px solid #111827";token.onclick=()=>movePiece(color,piece)}else token.disabled=true;cell.appendChild(token)})}renderPlayers()}
+function renderPlayers(){playersEl.innerHTML="";colors.forEach((color,index)=>{const box=document.createElement("div");box.className="player";if(index===turn&&!gameOver)box.classList.add("active");const finished=pieces[color].filter(p=>p.pos===57).length;box.innerHTML="<strong>"+names[color]+" खिलाड़ी</strong><br>फिनिश: "+finished+"/4";playersEl.appendChild(box)})}
+function updateStatus(message){statusEl.textContent=message}
+function rollDice(){if(gameOver||dice!==null)return;dice=Math.floor(Math.random()*6)+1;diceEl.textContent=diceFaces[dice-1];rollBtn.disabled=true;const color=colors[turn],available=pieces[color].filter(p=>canMove(color,p));if(available.length===0){updateStatus(names[color]+": "+dice+" आया। कोई चाल नहीं है।");renderPieces();lastRollWasSix=dice===6;setTimeout(()=>{if(!gameOver){dice=null;diceEl.textContent="🎲";if(!lastRollWasSix)turn=(turn+1)%4;lastRollWasSix=false;rollBtn.disabled=false;renderPieces();updateStatus(names[colors[turn]]+" की बारी")}},900);return}lastRollWasSix=dice===6;updateStatus(names[color]+" खिलाड़ी: अपनी गोटी चुनें।");renderPieces()}
+function movePiece(color,piece){if(!canMove(color,piece))return;const rolled=dice;lastRollWasSix=rolled===6;if(piece.pos===-1)piece.pos=0;else piece.pos+=rolled;if(piece.pos>=0&&piece.pos<52){const absoluteIndex=(starts[color]+piece.pos)%52,safe=[0,8,13,21,26,34,39,47].includes(absoluteIndex);if(!safe){for(const otherColor of colors){if(otherColor===color)continue;pieces[otherColor].forEach(other=>{if(other.pos<0||other.pos>=52)return;const otherIndex=(starts[otherColor]+other.pos)%52;if(otherIndex===absoluteIndex)other.pos=-1})}}}if(pieces[color].every(p=>p.pos===57)){gameOver=true;dice=null;rollBtn.disabled=true;updateStatus("🏆 "+names[color]+" खिलाड़ी जीत गया!");renderPieces();return}dice=null;diceEl.textContent="🎲";if(!lastRollWasSix)turn=(turn+1)%4;rollBtn.disabled=false;updateStatus(names[colors[turn]]+" खिलाड़ी की बारी");renderPieces()}
+function resetGame(){pieces={};colors.forEach(color=>pieces[color]=[0,1,2,3].map(id=>({id,pos:-1})));turn=0;dice=null;gameOver=false;lastRollWasSix=false;diceEl.textContent="🎲";rollBtn.disabled=false;updateStatus("लाल खिलाड़ी की बारी");createBoard();renderPieces()}
+rollBtn.addEventListener("click",rollDice);document.getElementById("reset").addEventListener("click",resetGame);resetGame();
+</script>
+</body>
+</html>
